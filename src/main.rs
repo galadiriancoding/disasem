@@ -6,7 +6,7 @@
     clippy::nursery,
     //clippy::cargo,
 )]
-#![allow(clippy::use_self)]
+#![allow(clippy::use_self, clippy::wildcard_imports)]
 use std::{
     borrow::Cow,
     collections::{HashMap, HashSet},
@@ -25,87 +25,8 @@ use clap::Parser;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 
-const ADD_EAX_IMM32: u8 = 0x05;
-const RM32_IMM32: u8 = 0x81;
-const ADD_RM32_R32: u8 = 0x01;
-const ADD_R32_RM32: u8 = 0x03;
-
-const AND_EAX_IMM32: u8 = 0x25;
-const AND_RM32_R32: u8 = 0x21;
-const AND_R32_RM32: u8 = 0x23;
-
-const CALL_REL32: u8 = 0xe8;
-const CALL_RM32: u8 = 0xff;
-
-const CLFLUSH_0: u8 = 0x0f;
-const CLFLUSH_1: u8 = 0xae;
-
-const CMP_EAX_IMM32: u8 = 0x3d;
-const CMP_RM32_R32: u8 = 0x39;
-const CMP_R32_RM32: u8 = 0x3b;
-
-const DEC_INC_PUSH_RM32: u8 = 0xff;
-const DEC_BASE: u8 = 0x48;
-const DEC_LIMIT: u8 = DEC_BASE + 7;
-
-const IDIV_NOT_TEST_RM32: u8 = 0xf7;
-
-const INC_BASE: u8 = 0x40;
-const INC_LIMIT: u8 = INC_BASE + 7;
-
-const JMP_REL8: u8 = 0xeb;
-const JMP_REL32: u8 = 0xe9;
-const JMP_RM32: u8 = 0xff;
-
-const JZ_REL8: u8 = 0x74;
-const COND_JMP_REL32_0: u8 = 0x0f;
-const JZ_REL32_1: u8 = 0x84;
-const JNZ_REL8: u8 = 0x75;
-const JNZ_REL32_1: u8 = 0x85;
-
-const LEA_R32: u8 = 0x8d;
-
-const MOV_EAX_MOFFS32: u8 = 0xa1;
-const MOV_MOFFS32_EAX: u8 = 0xa3;
-const MOV_R32_IMM32_BASE: u8 = 0xb8;
-const MOV_R32_IMM32_LIMIT: u8 = MOV_R32_IMM32_BASE + 7;
-const MOV_RM32_R32: u8 = 0x89;
-const MOV_R32_RM32: u8 = 0x8b;
-
-const MOVSD: u8 = 0xa5;
-
-const NOP: u8 = 0x90;
-
-const OR_EAX_IMM32: u8 = 0x0d;
-const OR_RM32_R32: u8 = 0x09;
-const OR_R32_RM32: u8 = 0x0b;
-
-const POP_RM32: u8 = 0x8f;
-const POP_BASE: u8 = 0x58;
-const POP_LIMIT: u8 = POP_BASE + 7;
-
-const PUSH_BASE: u8 = 0x50;
-const PUSH_LIMIT: u8 = PUSH_BASE + 7;
-const PUSH_IMM: u8 = 0x68;
-
-const REPNE_CMPSD_0: u8 = 0xf2;
-const REPNE_CMPSD_1: u8 = 0xa7;
-
-const RETF: u8 = 0xcb;
-const RETF_IMM16: u8 = 0xca;
-const RETN: u8 = 0xc3;
-const RETN_IMM16: u8 = 0xc2;
-
-const SUB_EAX_IMM32: u8 = 0x2d;
-const SUB_RM32_R32: u8 = 0x29;
-const SUB_R32_RM32: u8 = 0x2b;
-
-const TEST_EAX_IMM32: u8 = 0xa9;
-const TEST_R32_RM32: u8 = 0x85;
-
-const XOR_EAX_IMM32: u8 = 0x35;
-const XOR_RM32_R32: u8 = 0x31;
-const XOR_R32_RM32: u8 = 0x33;
+mod constants;
+use crate::constants::*;
 
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
@@ -1415,7 +1336,7 @@ fn disassemble_instruction(state: &mut DisassemblerState) {
             MOV_R32_IMM32_BASE..=MOV_R32_IMM32_LIMIT => {
                 disassemble_mov_r32_imm32(state, opcode);
             }
-            0xc7 => {
+            0xC7 => {
                 disassemble_mov_rm32_imm32(state);
             }
             MOVSD => {
@@ -1811,7 +1732,7 @@ mod tests {
     use crate::get_single_operand_from_digit;
     #[test]
     fn test_get_single_operand_from_digit_0() {
-        let remaing_bytes = vec![0x14, 0x4d, 0x44, 0x33, 0x22, 0x11];
+        let remaing_bytes = vec![0x14, 0x4D, 0x44, 0x33, 0x22, 0x11];
         let mut bytes_for_inst = 0;
         let operand = get_single_operand_from_digit(&remaing_bytes, 2, &mut bytes_for_inst);
         assert!(operand.is_some());
@@ -1820,7 +1741,7 @@ mod tests {
     }
     #[test]
     fn test_get_single_operand_from_digit_1() {
-        let remaing_bytes = vec![0x54, 0xb1, 0x25];
+        let remaing_bytes = vec![0x54, 0xB1, 0x25];
         let mut bytes_for_inst = 0;
         let operand = get_single_operand_from_digit(&remaing_bytes, 2, &mut bytes_for_inst);
         assert!(operand.is_some());
@@ -1829,7 +1750,7 @@ mod tests {
     }
     #[test]
     fn test_get_single_operand_from_digit_2() {
-        let remaing_bytes = vec![0x54, 0xa1, 0x25];
+        let remaing_bytes = vec![0x54, 0xA1, 0x25];
         let mut bytes_for_inst = 0;
         let operand = get_single_operand_from_digit(&remaing_bytes, 2, &mut bytes_for_inst);
         assert!(operand.is_some());

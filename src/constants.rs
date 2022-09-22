@@ -42,6 +42,7 @@ pub const MOV_EAX_MOFFS32: u8 = 0xA1;
 pub const MOV_MOFFS32_EAX: u8 = 0xA3;
 pub const MOV_R32_IMM32_BASE: u8 = 0xB8;
 pub const MOV_R32_IMM32_LIMIT: u8 = MOV_R32_IMM32_BASE + 7;
+pub const MOV_RM32_IMM32: u8 = 0xC7;
 pub const MOV_RM32_R32: u8 = 0x89;
 pub const MOV_R32_RM32: u8 = 0x8B;
 

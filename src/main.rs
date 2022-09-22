@@ -6,12 +6,17 @@
     clippy::nursery,
     //clippy::cargo,
 )]
-#![allow(clippy::use_self, clippy::wildcard_imports)]
+#![allow(clippy::use_self)]
+
+mod constants;
+mod modrm;
+mod sib;
+
 use std::{
     borrow::Cow,
     collections::{HashMap, HashSet},
     convert::TryInto,
-    error, fmt,
+    error,
     fmt::Write,
     fs::File,
     io::{self, BufReader, Read, Seek, SeekFrom},
@@ -22,11 +27,19 @@ use std::{
 use std::io::Write as IoWrite;
 
 use clap::Parser;
-use num_derive::FromPrimitive;
+use constants::{
+    ADD_EAX_IMM32, ADD_R32_RM32, ADD_RM32_R32, AND_EAX_IMM32, AND_R32_RM32, AND_RM32_R32,
+    CALL_REL32, CALL_RM32, CLFLUSH_0, CLFLUSH_1, CMP_EAX_IMM32, CMP_R32_RM32, CMP_RM32_R32,
+    COND_JMP_REL32_0, DEC_BASE, DEC_INC_PUSH_RM32, DEC_LIMIT, IDIV_NOT_TEST_RM32, INC_BASE,
+    INC_LIMIT, JMP_REL32, JMP_REL8, JMP_RM32, JNZ_REL32_1, JNZ_REL8, JZ_REL32_1, JZ_REL8, LEA_R32,
+    MOVSD, MOV_EAX_MOFFS32, MOV_MOFFS32_EAX, MOV_R32_IMM32_BASE, MOV_R32_IMM32_LIMIT, MOV_R32_RM32,
+    MOV_RM32_IMM32, MOV_RM32_R32, NOP, OR_EAX_IMM32, OR_R32_RM32, OR_RM32_R32, POP_BASE, POP_LIMIT,
+    POP_RM32, PUSH_BASE, PUSH_IMM, PUSH_LIMIT, REPNE_CMPSD_0, REPNE_CMPSD_1, RETF, RETF_IMM16,
+    RETN, RETN_IMM16, RM32_IMM32, SUB_EAX_IMM32, SUB_R32_RM32, SUB_RM32_R32, TEST_EAX_IMM32,
+    TEST_R32_RM32, XOR_EAX_IMM32, XOR_R32_RM32, XOR_RM32_R32,
+};
+use modrm::{get_single_operand_from_digit, AddressingMode, ModRM, REG};
 use num_traits::FromPrimitive;
-
-mod constants;
-use crate::constants::*;
 
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
@@ -649,7 +662,7 @@ fn disassemble_rm32_imm32(state: &mut DisassemblerState) {
     if cursor + 1 > state.assembly_data.len() {
         state.counter += 1;
     } else {
-        let reg = ModRM::new(*state.assembly_data.get(cursor + 1).unwrap()).reg as u8;
+        let reg = modrm::ModRM::new(*state.assembly_data.get(cursor + 1).unwrap()).reg as u8;
         if reg == 2 || reg == 3 {
             state.counter += 1;
         } else {
@@ -711,7 +724,7 @@ fn disassemble_rm_reg(state: &mut DisassemblerState, opcode: u8) {
     if cursor + 1 > state.assembly_data.len() {
         state.counter += 1;
     } else {
-        let reg = ModRM::new(*state.assembly_data.get(cursor + 1).unwrap()).reg;
+        let reg = modrm::ModRM::new(*state.assembly_data.get(cursor + 1).unwrap()).reg;
         let mut bytes_read = 0;
         let op1 = get_single_operand_from_digit(
             &state.assembly_data[cursor + 1..],
@@ -1336,7 +1349,7 @@ fn disassemble_instruction(state: &mut DisassemblerState) {
             MOV_R32_IMM32_BASE..=MOV_R32_IMM32_LIMIT => {
                 disassemble_mov_r32_imm32(state, opcode);
             }
-            0xC7 => {
+            MOV_RM32_IMM32 => {
                 disassemble_mov_rm32_imm32(state);
             }
             MOVSD => {
@@ -1358,412 +1371,5 @@ fn disassemble_instruction(state: &mut DisassemblerState) {
                 state.counter += 1;
             }
         },
-    }
-}
-
-#[repr(u8)]
-#[derive(FromPrimitive, PartialEq)]
-enum AddressingMode {
-    Dereference = 0,
-    ByteOffset,
-    DwordOffset,
-    DirectAccess,
-}
-
-#[repr(u8)]
-#[derive(FromPrimitive, Debug, PartialEq, Copy, Clone)]
-enum REG {
-    Eax = 0,
-    Ecx,
-    Edx,
-    Ebx,
-    Esp,
-    Ebp,
-    Esi,
-    Edi,
-}
-
-#[repr(u8)]
-#[derive(FromPrimitive, Debug)]
-enum RM {
-    Eax = 0,
-    Ecx,
-    Edx,
-    Ebx,
-    EspSib,
-    EbpDisp32,
-    Esi,
-    Edi,
-}
-
-struct ModRM {
-    adressing_mode: AddressingMode,
-    reg: REG,
-    rm: RM,
-}
-
-impl ModRM {
-    fn new(byte: u8) -> Self {
-        Self {
-            adressing_mode: FromPrimitive::from_u8(byte >> 6 & 0x3).unwrap(),
-            reg: FromPrimitive::from_u8(byte >> 3 & 0x7).unwrap(),
-            rm: FromPrimitive::from_u8(byte & 0x7).unwrap(),
-        }
-    }
-}
-
-impl fmt::Display for REG {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", format!("{:?}", self).to_lowercase())
-    }
-}
-
-#[repr(u8)]
-#[derive(FromPrimitive)]
-enum Scale {
-    Base = 0,
-    Times2,
-    Times4,
-    Times8,
-}
-
-#[repr(u8)]
-#[derive(FromPrimitive, Debug, PartialEq)]
-enum Index {
-    Eax = 0,
-    Ecx,
-    Edx,
-    Ebx,
-    None,
-    Ebp,
-    Esi,
-    Edi,
-}
-
-#[repr(u8)]
-#[derive(FromPrimitive, Debug, PartialEq)]
-enum Base {
-    Eax = 0,
-    Ecx,
-    Edx,
-    Ebx,
-    Esp,
-    Star,
-    Esi,
-    Edi,
-}
-
-struct Sib {
-    scale: Scale,
-    index: Index,
-    base: Base,
-}
-
-impl Sib {
-    fn new(byte: u8) -> Self {
-        Self {
-            scale: FromPrimitive::from_u8(byte >> 6 & 0x3).unwrap(),
-            index: FromPrimitive::from_u8(byte >> 3 & 0x7).unwrap(),
-            base: FromPrimitive::from_u8(byte & 0x7).unwrap(),
-        }
-    }
-}
-
-enum Disp {
-    Disp8(i8),
-    Disp32(i32),
-}
-
-impl fmt::Display for Base {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", format!("{:?}", self).to_lowercase())
-    }
-}
-
-impl fmt::Display for Index {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", format!("{:?}", self).to_lowercase())
-    }
-}
-
-impl fmt::Display for RM {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Self::EbpDisp32 => write!(f, "ebp"),
-            Self::EspSib => write!(f, "esp"),
-            _ => write!(f, "{}", format!("{:?}", self).to_lowercase()),
-        }
-    }
-}
-
-fn build_sib_operand(sib: u8, md: &AddressingMode, offset: Option<Disp>) -> String {
-    let sib = Sib::new(sib);
-    let base_str = if sib.base == Base::Star {
-        Cow::Borrowed(match md {
-            AddressingMode::ByteOffset | AddressingMode::DwordOffset => "ebp",
-            _ => "",
-        })
-    } else {
-        Cow::Owned(format!("{}", sib.base))
-    };
-    let con_1 = if !base_str.is_empty() && sib.index != Index::None {
-        " + "
-    } else {
-        ""
-    };
-    let index = if sib.index == Index::None {
-        Cow::Borrowed("")
-    } else {
-        Cow::Owned(format!("{}", sib.index))
-    };
-    let scale = if sib.index == Index::None {
-        ""
-    } else {
-        match sib.scale {
-            Scale::Base => "",
-            Scale::Times2 => "*2",
-            Scale::Times4 => "*4",
-            Scale::Times8 => "*8",
-        }
-    };
-    let prefix = format!("{}{}{}{}", base_str, con_1, index, scale);
-    let con_2 = if prefix.is_empty() || offset.is_none() {
-        ""
-    } else {
-        match offset.as_ref().unwrap() {
-            Disp::Disp8(off) => {
-                if off.is_negative() {
-                    " - "
-                } else {
-                    " + "
-                }
-            }
-            Disp::Disp32(off) => {
-                if off.is_negative() {
-                    " - "
-                } else {
-                    " + "
-                }
-            }
-        }
-    };
-    let offset_str = match offset {
-        None => Cow::Borrowed(""),
-        Some(off) => Cow::Owned(match off {
-            Disp::Disp8(o) => format!("{:#04x}", o.unsigned_abs()),
-            Disp::Disp32(o) => format!("{:#010x}", o.unsigned_abs()),
-        }),
-    };
-
-    format!("[{}{}{}]", prefix, con_2, offset_str)
-}
-
-fn get_single_operand_from_digit_dereference(
-    remaining_bytes: &[u8],
-    bytes_for_inst: &mut u8,
-    modrm: &ModRM,
-) -> Option<String> {
-    match modrm.rm {
-        RM::EspSib => {
-            if remaining_bytes.len() < 2 {
-                None
-            } else {
-                let sib = Sib::new(remaining_bytes[1]);
-                if sib.base == Base::Star {
-                    if remaining_bytes.len() < 6 {
-                        None
-                    } else {
-                        *bytes_for_inst = 6;
-                        let disp = i32::from_le_bytes(remaining_bytes[2..6].try_into().unwrap());
-                        Some(build_sib_operand(
-                            remaining_bytes[1],
-                            &AddressingMode::Dereference,
-                            if disp == 0 {
-                                None
-                            } else {
-                                Some(Disp::Disp32(disp))
-                            },
-                        ))
-                    }
-                } else {
-                    *bytes_for_inst = 2;
-                    Some(build_sib_operand(
-                        remaining_bytes[1],
-                        &AddressingMode::Dereference,
-                        None,
-                    ))
-                }
-            }
-        }
-        RM::EbpDisp32 => {
-            if remaining_bytes.len() < 5 {
-                None
-            } else {
-                *bytes_for_inst = 5;
-                let ptr = u32::from_le_bytes(remaining_bytes[1..5].try_into().unwrap());
-                Some(format!("[{:#010x}]", ptr))
-            }
-        }
-        _ => {
-            *bytes_for_inst = 1;
-            Some(format!("[{}]", modrm.rm))
-        }
-    }
-}
-
-fn get_single_operand_from_digit_byteoffset(
-    remaining_bytes: &[u8],
-    bytes_for_inst: &mut u8,
-    modrm: &ModRM,
-) -> Option<String> {
-    match modrm.rm {
-        RM::EspSib => {
-            if remaining_bytes.len() < 3 {
-                None
-            } else {
-                *bytes_for_inst = 3;
-                #[allow(clippy::cast_possible_wrap)]
-                Some(build_sib_operand(
-                    remaining_bytes[1],
-                    &AddressingMode::ByteOffset,
-                    if remaining_bytes[2] == 0 {
-                        None
-                    } else {
-                        Some(Disp::Disp8(remaining_bytes[2] as i8))
-                    },
-                ))
-            }
-        }
-        _ => {
-            if remaining_bytes.len() < 2 {
-                None
-            } else {
-                *bytes_for_inst = 2;
-                #[allow(clippy::cast_possible_wrap)]
-                if remaining_bytes[1] == 0 {
-                    Some(format!("[{}]", modrm.rm))
-                } else if (remaining_bytes[1] as i8).is_negative() {
-                    Some(format!(
-                        "[{} - {:#04x}]",
-                        modrm.rm,
-                        (remaining_bytes[1] as i8).unsigned_abs()
-                    ))
-                } else {
-                    Some(format!(
-                        "[{} + {:#04x}]",
-                        modrm.rm,
-                        (remaining_bytes[1] as i8).unsigned_abs()
-                    ))
-                }
-            }
-        }
-    }
-}
-
-fn get_single_operand_from_digit_dwordoffset(
-    remaining_bytes: &[u8],
-    bytes_for_inst: &mut u8,
-    modrm: &ModRM,
-) -> Option<String> {
-    match modrm.rm {
-        RM::EspSib => {
-            if remaining_bytes.len() < 6 {
-                None
-            } else {
-                *bytes_for_inst = 6;
-                let offset = i32::from_le_bytes(remaining_bytes[2..6].try_into().unwrap());
-                Some(build_sib_operand(
-                    remaining_bytes[1],
-                    &AddressingMode::DwordOffset,
-                    if offset == 0 {
-                        None
-                    } else {
-                        Some(Disp::Disp32(offset))
-                    },
-                ))
-            }
-        }
-        _ => {
-            if remaining_bytes.len() < 5 {
-                None
-            } else {
-                *bytes_for_inst = 5;
-                let offset = i32::from_le_bytes(remaining_bytes[1..5].try_into().unwrap());
-                if offset == 0 {
-                    Some(format!("[{}]", modrm.rm))
-                } else if offset.is_negative() {
-                    Some(format!("[{} - {:#010x}]", modrm.rm, offset.unsigned_abs()))
-                } else {
-                    Some(format!("[{} + {:#010x}]", modrm.rm, offset.unsigned_abs()))
-                }
-            }
-        }
-    }
-}
-
-fn get_single_operand_from_digit(
-    remaining_bytes: &[u8],
-    digit: u8,
-    bytes_for_inst: &mut u8,
-) -> Option<String> {
-    let modrm = ModRM::new(remaining_bytes[0]);
-    if modrm.reg != FromPrimitive::from_u8(digit).unwrap() {
-        return None;
-    }
-    match modrm.adressing_mode {
-        AddressingMode::Dereference => {
-            get_single_operand_from_digit_dereference(remaining_bytes, bytes_for_inst, &modrm)
-        }
-        AddressingMode::ByteOffset => {
-            get_single_operand_from_digit_byteoffset(remaining_bytes, bytes_for_inst, &modrm)
-        }
-        AddressingMode::DwordOffset => {
-            get_single_operand_from_digit_dwordoffset(remaining_bytes, bytes_for_inst, &modrm)
-        }
-        AddressingMode::DirectAccess => {
-            *bytes_for_inst = 1;
-            Some(format!("{}", modrm.rm))
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::get_single_operand_from_digit;
-    #[test]
-    fn test_get_single_operand_from_digit_0() {
-        let remaing_bytes = vec![0x14, 0x4D, 0x44, 0x33, 0x22, 0x11];
-        let mut bytes_for_inst = 0;
-        let operand = get_single_operand_from_digit(&remaing_bytes, 2, &mut bytes_for_inst);
-        assert!(operand.is_some());
-        assert_eq!(operand.unwrap(), "[ecx*2 + 0x11223344]");
-        assert_eq!(bytes_for_inst, 6);
-    }
-    #[test]
-    fn test_get_single_operand_from_digit_1() {
-        let remaing_bytes = vec![0x54, 0xB1, 0x25];
-        let mut bytes_for_inst = 0;
-        let operand = get_single_operand_from_digit(&remaing_bytes, 2, &mut bytes_for_inst);
-        assert!(operand.is_some());
-        assert_eq!(operand.unwrap(), "[ecx + esi*4 + 0x25]");
-        assert_eq!(bytes_for_inst, 3);
-    }
-    #[test]
-    fn test_get_single_operand_from_digit_2() {
-        let remaing_bytes = vec![0x54, 0xA1, 0x25];
-        let mut bytes_for_inst = 0;
-        let operand = get_single_operand_from_digit(&remaing_bytes, 2, &mut bytes_for_inst);
-        assert!(operand.is_some());
-        assert_eq!(operand.unwrap(), "[ecx + 0x25]");
-        assert_eq!(bytes_for_inst, 3);
-    }
-    #[test]
-    fn test_get_single_operand_from_digit_3() {
-        let remaing_bytes = vec![0x51, 0x5];
-        let mut bytes_for_inst = 0;
-        let operand = get_single_operand_from_digit(&remaing_bytes, 2, &mut bytes_for_inst);
-        assert!(operand.is_some());
-        assert_eq!(operand.unwrap(), "[ecx + 0x05]");
-        assert_eq!(bytes_for_inst, 2);
     }
 }

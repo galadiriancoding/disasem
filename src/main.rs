@@ -4,7 +4,7 @@
     //clippy::restriction,
     clippy::pedantic,
     clippy::nursery,
-    //clippy::cargo,
+    clippy::cargo,
 )]
 #![allow(clippy::use_self)]
 
@@ -164,24 +164,20 @@ fn simplified_recursive_descent(reader: &mut BufReader<File>) -> Result<(), Box<
                 }
                 Deferred::Address(addr) => {
                     state.counter = addr;
-                    continue;
                 }
                 Deferred::Dummy => {}
             };
         } else {
             match is_call_inst(&mut state, true) {
-                Some(call_info) => {
-                    match call_info {
-                        CallInfo::Followable(call_target) => {
-                            state.deferred_list.push(Deferred::Address(state.counter));
-                            state.counter = call_target;
-                        }
-                        CallInfo::Unfollowable => {
-                            state.deferred_list.push(Deferred::Dummy);
-                        }
+                Some(call_info) => match call_info {
+                    CallInfo::Followable(call_target) => {
+                        state.deferred_list.push(Deferred::Address(state.counter));
+                        state.counter = call_target;
                     }
-                    continue;
-                }
+                    CallInfo::Unfollowable => {
+                        state.deferred_list.push(Deferred::Dummy);
+                    }
+                },
                 None => match is_jmp_inst(&mut state, true) {
                     Some(jmp_type) => match jmp_type {
                         JmpInfo::Conditional(target) => {
@@ -206,11 +202,10 @@ fn print_output_dict(state: &DisassemblerState) -> Result<(), Box<dyn error::Err
     let mut cursor: u32 = 0;
     let mut output = String::new();
     while (cursor as usize) < state.assembly_data.len() {
-        if state.labels.contains(&Label::Function(cursor)) {
-            writeln!(&mut output, "\nfunction_{:08x}h:", cursor)?;
-        }
         if state.labels.contains(&Label::Offset(cursor)) {
-            writeln!(&mut output, "\noffset_{:08x}h:", cursor)?;
+            writeln!(&mut output, "offset_{:08x}h:", cursor)?;
+        } else if state.labels.contains(&Label::Function(cursor)) {
+            writeln!(&mut output, "function_{:08x}h:", cursor)?;
         }
         match state.output_dict.get(&cursor) {
             None => {

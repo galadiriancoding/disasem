@@ -5,11 +5,15 @@ edition = "2021"
 authors = ["Luke C. J. Currie"]
 description = "A simple disassmbler for a subset of X86 instructions"
 license = "Apache-2.0"
+repository = "https://github.com/galadiriancoding/disasem"
+readme = "README.md"
+keywords = ["disassembler", "x86", "32-bit", "re", "reverse engineering", "academic"]
+categories = ["command-line-utilities", "parser-implementations"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-clap = { version = "3.2.20", features = ["derive"] }
+clap = { version = "4.0.2", features = ["derive"] }
 num-derive = "0.3.3"
 num-traits = "0.2.15"
 
@@ -17,10 +21,10 @@ num-traits = "0.2.15"
 strip = true
 lto = true
 codegen-units = 1
-panic = "abort"
-opt-level = "z"
+# panic = "abort"
+# opt-level = "z"
 
 [profile.release.package."*"]
 strip = true
 codegen-units = 1
-opt-level = "z"
+# opt-level = "z"

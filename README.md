@@ -3,11 +3,39 @@
 `disasem` is a simple CLI application for disassembling raw machine code from 
 an input file to stdout.
 
+## Building/Installation
+
+The recommended way of building `disasem` is to use the `cargo` tool provided 
+by Rust.
+
+To build the binary, `cd` into the root directory of the repo and then run
+
+```
+cargo build --release
+```
+
+at which point the binary can be found in `repo\target\release\disasem.exe`
+
+---
+
+Alternatively, you can use `cargo` to install `disasem` into your set
+of `cargo`-managed binaries
+
+```
+cargo install --git https://github.com/galadiriancoding/disasem
+```
+
+or after cloning the repo
+
+```
+cargo install --path \path\to\repo
+```
+
 
 ## Usage
 
 ```
-disasem.exe [OPTIONS] -i <INPUT>
+disasem [OPTIONS] -i <INPUT>
 
 Options:
   -i <INPUT>      Path to binary file to be disassembled
@@ -25,4 +53,4 @@ Options:
 SRD will follow the code path as best as can be determined at compile time.
 As such, potentially unreachable code will be displayed as a set of `db`s. Linear Sweep will parse the file from begining to end and may attempt to parse
 non-instructions (such as defined text) as potential instructions. If the
-outout using one algorithm does not make sense, try switching to the other one. 
+output using one algorithm does not make sense, try switching to the other one. 

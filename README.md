@@ -1,7 +1,6 @@
 # disasem
 
-`disasem` is a simple CLI application for disassembling raw machine code from 
-an input file to stdout.
+`disasem` is a simple CLI application for disassembling raw x86 machine code from an input file to stdout for a small subset of popular x86 instructions.
 
 ## Building/Installation
 

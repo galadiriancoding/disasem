@@ -1,11 +1,5 @@
 #![deny(warnings)]
-#![warn(
-    clippy::all,
-    //clippy::restriction,
-    clippy::pedantic,
-    clippy::nursery,
-    clippy::cargo,
-)]
+#![warn(clippy::all, clippy::pedantic, clippy::nursery, clippy::cargo)]
 #![allow(clippy::use_self)]
 
 mod constants;
@@ -228,8 +222,8 @@ fn print_output_dict(state: &DisassemblerState) -> Result<(), Box<dyn error::Err
                         Some(op1) => op1,
                     },
                     match &assem_line.operand_2 {
-                        None => Cow::Borrowed(""),
-                        Some(op2) => Cow::Owned(format!(", {}", op2)),
+                        None => Cow::from(""),
+                        Some(op2) => Cow::from(format!(", {}", op2)),
                     }
                 )?;
                 let inst_len: u32 = (assem_line.machine_code.len() / 2).try_into().unwrap();
@@ -279,7 +273,7 @@ fn is_call_inst(state: &mut DisassemblerState, check_target: bool) -> Option<Cal
                         machine_code: byte_slice_to_hex_str(
                             &state.assembly_data[cursor..cursor + 5],
                         ),
-                        operand_1: Some(Cow::Owned(format!("function_{:08x}h", target))),
+                        operand_1: Some(Cow::from(format!("function_{:08x}h", target))),
                         operand_2: None,
                     },
                 );
@@ -305,7 +299,7 @@ fn is_call_inst(state: &mut DisassemblerState, check_target: bool) -> Option<Cal
                             machine_code: byte_slice_to_hex_str(
                                 &state.assembly_data[cursor..cursor + bytes_needed as usize],
                             ),
-                            operand_1: Some(Cow::Owned(op1)),
+                            operand_1: Some(Cow::from(op1)),
                             operand_2: None,
                         },
                     );
@@ -365,7 +359,7 @@ fn is_function_end(state: &mut DisassemblerState) -> bool {
                 AssemblyLine {
                     opcode: "retn",
                     machine_code: byte_slice_to_hex_str(&state.assembly_data[cursor..cursor + 3]),
-                    operand_1: Some(Cow::Owned(format!("{:#06x}", popval))),
+                    operand_1: Some(Cow::from(format!("{:#06x}", popval))),
                     operand_2: None,
                 },
             );
@@ -387,7 +381,7 @@ fn is_function_end(state: &mut DisassemblerState) -> bool {
                 AssemblyLine {
                     opcode: "retf",
                     machine_code: byte_slice_to_hex_str(&state.assembly_data[cursor..cursor + 3]),
-                    operand_1: Some(Cow::Owned(format!("{:#06x}", popval))),
+                    operand_1: Some(Cow::from(format!("{:#06x}", popval))),
                     operand_2: None,
                 },
             );
@@ -433,7 +427,7 @@ fn is_jmp_inst_jmp_rel8(state: &mut DisassemblerState, check_target: bool) -> Op
             AssemblyLine {
                 opcode: "jmp",
                 machine_code: byte_slice_to_hex_str(&state.assembly_data[cursor..cursor + 2]),
-                operand_1: Some(Cow::Owned(format!("offset_{:08x}h", target))),
+                operand_1: Some(Cow::from(format!("offset_{:08x}h", target))),
                 operand_2: None,
             },
         );
@@ -468,7 +462,7 @@ fn is_jmp_inst_jmp_rel32(state: &mut DisassemblerState, check_target: bool) -> O
             AssemblyLine {
                 opcode: "jmp",
                 machine_code: byte_slice_to_hex_str(&state.assembly_data[cursor..cursor + 5]),
-                operand_1: Some(Cow::Owned(format!("offset_{:08x}h", target))),
+                operand_1: Some(Cow::from(format!("offset_{:08x}h", target))),
                 operand_2: None,
             },
         );
@@ -493,7 +487,7 @@ fn is_jmp_inst_jmp_rm32(state: &mut DisassemblerState) -> Option<JmpInfo> {
                     machine_code: byte_slice_to_hex_str(
                         &state.assembly_data[cursor..cursor + bytes_needed as usize],
                     ),
-                    operand_1: Some(Cow::Owned(op1)),
+                    operand_1: Some(Cow::from(op1)),
                     operand_2: None,
                 },
             );
@@ -540,7 +534,7 @@ fn is_jmp_inst_cond_jmp_rel32(
                     }
                 },
                 machine_code: byte_slice_to_hex_str(&state.assembly_data[cursor..cursor + 6]),
-                operand_1: Some(Cow::Owned(format!("offset_{:08x}h", target))),
+                operand_1: Some(Cow::from(format!("offset_{:08x}h", target))),
                 operand_2: None,
             },
         );
@@ -579,7 +573,7 @@ fn is_jmp_inst_cond_jmp_rel8(
             AssemblyLine {
                 opcode: if is_zero { "jz" } else { "jnz" },
                 machine_code: byte_slice_to_hex_str(&state.assembly_data[cursor..cursor + 2]),
-                operand_1: Some(Cow::Owned(format!("offset_{:08x}h", target))),
+                operand_1: Some(Cow::from(format!("offset_{:08x}h", target))),
                 operand_2: None,
             },
         );
@@ -636,11 +630,11 @@ fn disassemble_eax_imm32(state: &mut DisassemblerState, opcode: u8) {
                 machine_code: byte_slice_to_hex_str(
                     &state.assembly_data[cursor..cursor + inst_len as usize],
                 ),
-                operand_1: Some(Cow::Borrowed("eax")),
+                operand_1: Some(Cow::from("eax")),
                 operand_2: if opcode == MOV_EAX_MOFFS32 {
-                    Some(Cow::Owned(format!("[{:#010x}]", imm,)))
+                    Some(Cow::from(format!("[{:#010x}]", imm,)))
                 } else {
-                    Some(Cow::Owned(format!(
+                    Some(Cow::from(format!(
                         "{}{:#010x}",
                         if imm.is_negative() { "-" } else { "" },
                         imm.unsigned_abs(),
@@ -698,8 +692,8 @@ fn disassemble_rm32_imm32(state: &mut DisassemblerState) {
                                 machine_code: byte_slice_to_hex_str(
                                     &state.assembly_data[cursor..cursor + inst_len as usize],
                                 ),
-                                operand_1: Some(Cow::Owned(op1_str)),
-                                operand_2: Some(Cow::Owned(format!(
+                                operand_1: Some(Cow::from(op1_str)),
+                                operand_2: Some(Cow::from(format!(
                                     "{}{:#010x}",
                                     if imm.is_negative() { "-" } else { "" },
                                     imm.unsigned_abs()
@@ -756,8 +750,8 @@ fn disassemble_rm_reg(state: &mut DisassemblerState, opcode: u8) {
                             machine_code: byte_slice_to_hex_str(
                                 &state.assembly_data[cursor..cursor + inst_len as usize],
                             ),
-                            operand_1: Some(Cow::Owned(op1_str)),
-                            operand_2: Some(Cow::Owned(reg.to_string())),
+                            operand_1: Some(Cow::from(op1_str)),
+                            operand_2: Some(Cow::from(reg.to_string())),
                         },
                     );
                     state.counter += u32::from(inst_len);
@@ -808,8 +802,8 @@ fn disassemble_reg_rm(state: &mut DisassemblerState, opcode: u8) {
                             machine_code: byte_slice_to_hex_str(
                                 &state.assembly_data[cursor..cursor + inst_len as usize],
                             ),
-                            operand_1: Some(Cow::Owned(reg.to_string())),
-                            operand_2: Some(Cow::Owned(op2_str)),
+                            operand_1: Some(Cow::from(reg.to_string())),
+                            operand_2: Some(Cow::from(op2_str)),
                         },
                     );
                     state.counter += u32::from(inst_len);
@@ -851,7 +845,7 @@ fn disassemble_clflush(state: &mut DisassemblerState) {
                                 machine_code: byte_slice_to_hex_str(
                                     &state.assembly_data[cursor..cursor + inst_len as usize],
                                 ),
-                                operand_1: Some(Cow::Owned(op1_str)),
+                                operand_1: Some(Cow::from(op1_str)),
                                 operand_2: None,
                             },
                         );
@@ -900,7 +894,7 @@ fn disassemble_dec_inc_push_rm32(state: &mut DisassemblerState) {
                                 machine_code: byte_slice_to_hex_str(
                                     &state.assembly_data[cursor..cursor + inst_len as usize],
                                 ),
-                                operand_1: Some(Cow::Owned(op1_str)),
+                                operand_1: Some(Cow::from(op1_str)),
                                 operand_2: None,
                             },
                         );
@@ -930,7 +924,7 @@ fn disassemble_plus_reg(state: &mut DisassemblerState, opcode: u8, base: u8, ins
                 machine_code: byte_slice_to_hex_str(
                     &state.assembly_data[cursor..cursor + inst_len as usize],
                 ),
-                operand_1: Some(Cow::Owned(reg.to_string())),
+                operand_1: Some(Cow::from(reg.to_string())),
                 operand_2: None,
             },
         );
@@ -979,7 +973,7 @@ fn disassemble_idiv_not_test_rm32(state: &mut DisassemblerState) {
                                 machine_code: byte_slice_to_hex_str(
                                     &state.assembly_data[cursor..cursor + inst_len as usize],
                                 ),
-                                operand_1: Some(Cow::Owned(op1_str)),
+                                operand_1: Some(Cow::from(op1_str)),
                                 operand_2: if reg == 0 {
                                     let imm = i32::from_le_bytes(
                                         state.assembly_data[cursor + 1 + bytes_read as usize
@@ -987,7 +981,7 @@ fn disassemble_idiv_not_test_rm32(state: &mut DisassemblerState) {
                                             .try_into()
                                             .unwrap(),
                                     );
-                                    Some(Cow::Owned(format!(
+                                    Some(Cow::from(format!(
                                         "{}{:#010x}",
                                         if imm.is_negative() { "-" } else { "" },
                                         imm
@@ -1040,8 +1034,8 @@ fn disassemble_lea(state: &mut DisassemblerState) {
                                 machine_code: byte_slice_to_hex_str(
                                     &state.assembly_data[cursor..cursor + inst_len as usize],
                                 ),
-                                operand_1: Some(Cow::Owned(reg.to_string())),
-                                operand_2: Some(Cow::Owned(op2_str)),
+                                operand_1: Some(Cow::from(reg.to_string())),
+                                operand_2: Some(Cow::from(op2_str)),
                             },
                         );
                         state.counter += u32::from(inst_len);
@@ -1070,8 +1064,8 @@ fn disassemble_mov_moffs32_eax(state: &mut DisassemblerState) {
                 machine_code: byte_slice_to_hex_str(
                     &state.assembly_data[cursor..cursor + inst_len as usize],
                 ),
-                operand_1: Some(Cow::Owned(format!("[{:#010x}]", imm))),
-                operand_2: Some(Cow::Borrowed("eax")),
+                operand_1: Some(Cow::from(format!("[{:#010x}]", imm))),
+                operand_2: Some(Cow::from("eax")),
             },
         );
         state.counter += inst_len;
@@ -1101,8 +1095,8 @@ fn disassemble_mov_r32_imm32(state: &mut DisassemblerState, opcode: u8) {
                 machine_code: byte_slice_to_hex_str(
                     &state.assembly_data[cursor..cursor + inst_len as usize],
                 ),
-                operand_1: Some(Cow::Owned(reg.to_string())),
-                operand_2: Some(Cow::Owned(format!(
+                operand_1: Some(Cow::from(reg.to_string())),
+                operand_2: Some(Cow::from(format!(
                     "{}{:#010x}",
                     if imm.is_negative() { "-" } else { "" },
                     imm
@@ -1143,8 +1137,8 @@ fn disassemble_mov_rm32_imm32(state: &mut DisassemblerState) {
                             machine_code: byte_slice_to_hex_str(
                                 &state.assembly_data[cursor..cursor + inst_len as usize],
                             ),
-                            operand_1: Some(Cow::Owned(op1_str)),
-                            operand_2: Some(Cow::Owned(format!(
+                            operand_1: Some(Cow::from(op1_str)),
+                            operand_2: Some(Cow::from(format!(
                                 "{}{:#010x}",
                                 if imm.is_negative() { "-" } else { "" },
                                 imm
@@ -1171,8 +1165,8 @@ fn disassemble_movsd(state: &mut DisassemblerState) {
                 machine_code: byte_slice_to_hex_str(
                     &state.assembly_data[cursor..cursor + inst_len as usize],
                 ),
-                operand_1: Some(Cow::Borrowed("[edi]")),
-                operand_2: Some(Cow::Borrowed("[esi]")),
+                operand_1: Some(Cow::from("[edi]")),
+                operand_2: Some(Cow::from("[esi]")),
             },
         );
         state.counter += inst_len;
@@ -1224,7 +1218,7 @@ fn disassemble_pop_rm32(state: &mut DisassemblerState) {
                             machine_code: byte_slice_to_hex_str(
                                 &state.assembly_data[cursor..cursor + inst_len as usize],
                             ),
-                            operand_1: Some(Cow::Owned(op1_str)),
+                            operand_1: Some(Cow::from(op1_str)),
                             operand_2: None,
                         },
                     );
@@ -1253,7 +1247,7 @@ fn disassemble_push_imm(state: &mut DisassemblerState) {
                 machine_code: byte_slice_to_hex_str(
                     &state.assembly_data[cursor..cursor + inst_len as usize],
                 ),
-                operand_1: Some(Cow::Owned(format!(
+                operand_1: Some(Cow::from(format!(
                     "{}{:#010x}",
                     if imm.is_negative() { "-" } else { "" },
                     imm
@@ -1283,8 +1277,8 @@ fn disassemble_repne_cmpsd(state: &mut DisassemblerState) {
                     machine_code: byte_slice_to_hex_str(
                         &state.assembly_data[cursor..cursor + inst_len as usize],
                     ),
-                    operand_1: Some(Cow::Borrowed("[edi]")),
-                    operand_2: Some(Cow::Borrowed("[esi]")),
+                    operand_1: Some(Cow::from("[edi]")),
+                    operand_2: Some(Cow::from("[esi]")),
                 },
             );
             state.counter += inst_len;

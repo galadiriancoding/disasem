@@ -1,4 +1,7 @@
 /target
 /examples
 /output
+/coverage
+/.vscode
 *.lock
+*.profraw
